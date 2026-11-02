@@ -9,3 +9,12 @@ A church and Sunday school administration platform built with React, TypeScript,
 3. Start the development server with `npm run dev`.
 
 Run `npm run build` to type-check and create a production build.
+
+## Deploy to Cloudflare Workers
+
+The Wrangler configuration serves the built `dist` directory and supports client-side routes. Build before deploying:
+
+```sh
+npm run build
+npx wrangler deploy
+```
