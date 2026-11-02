@@ -1,0 +1,8 @@
+# Only the published half of the platform is for search engines. The office at
+# /erp holds member, student and finance rows and must never be indexed.
+User-agent: *
+Allow: /
+Disallow: /erp/
+Disallow: /node_modules/
+
+# የመሳሪያ ካርታው (sitemap.xml) በአስተዳደሩ “የፍለጋ ቅንብር” ክፍል ከተለጠፉ ይዘቶች ይመረትና በቤተ ክርስቲያኑ አድራሻ ላይ ይቀመጣል።

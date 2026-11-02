@@ -1,0 +1,4 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["src/erp/pages/school.tsx", "src/erp/pages/operations.tsx", "src/types", "src/vite-env.d.ts"]
+}

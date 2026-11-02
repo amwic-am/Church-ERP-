@@ -1,0 +1,4 @@
+# A single-page app owns every path, so a deep link like /erp/finance/transactions
+# or /news/የእሑድ-ልክክት must reach index.html instead of a 404.
+/erp/* /index.html 200
+/* /index.html 200
