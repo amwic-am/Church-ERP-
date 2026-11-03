@@ -13,6 +13,7 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { Button } from '@/components/ui/button';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { DateInput, Field, FormSection, Input, Select, Switch, Textarea } from '@/components/ui/form';
+import { MediaLibraryUploadButton, MediaUpload } from '@/components/ui/media-upload';
 import { ConfirmDialog, Modal } from '@/components/ui/overlay';
 import { PageHeading, StatusBadge, type Tone } from '@/components/ui/surface';
 import { CONTENT_STATE, UI } from '@/lib/i18n';
@@ -68,11 +69,13 @@ function Control({
   field,
   value,
   options,
+  scope,
   onChange,
 }: {
   field: FieldLike;
   value: unknown;
   options: readonly Option[] | undefined;
+  scope: string;
   onChange: (next: unknown) => void;
 }) {
   const id = `f-${field.key}`;
@@ -100,7 +103,21 @@ function Control({
     );
   }
 
-  if (field.kind === 'select' || field.kind === 'image' || field.kind === 'media') {
+  // Genuine media: drag/browse/paste a file, register it, store the row's ID.
+  if (field.kind === 'image' || field.kind === 'media') {
+    return (
+      <MediaUpload
+        value={String(value ?? '')}
+        fieldLabel={field.label}
+        scope={scope}
+        required={field.required}
+        onChange={(next) => onChange(next)}
+      />
+    );
+  }
+
+  // A plain foreign key: the live option list, chosen from a select.
+  if (field.kind === 'select') {
     return (
       <Select
         id={id}
@@ -347,6 +364,9 @@ export function ResourceScreen<T extends TableName>({ resource }: { resource: Re
         description={resource.description}
         actions={
           <>
+            {resource.table === 'media_files' && writable ? (
+              <MediaLibraryUploadButton scope="library" onUploaded={() => load()} />
+            ) : null}
             {can('reports.export', 'finance.export') ? (
               <Button variant="outline" size="sm" onClick={exportAll} icon={<Download className="h-4 w-4" />} disabled={rows.length === 0}>
                 {UI.exportExcel}
@@ -410,6 +430,7 @@ export function ResourceScreen<T extends TableName>({ resource }: { resource: Re
                 field={field}
                 value={values[field.key]}
                 options={choices[field.key] ?? field.options}
+                scope={String(resource.table)}
                 onChange={(next) => setValues((prev) => ({ ...prev, [field.key]: next }))}
               />
             </Field>

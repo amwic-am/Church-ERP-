@@ -39,7 +39,7 @@ export const profilesResource = {
     { key: 'full_name_en', label: 'ሙሉ ስም (እንግሊዝኛ)', kind: 'text', hideFromList: true },
     { key: 'phone', label: 'ስልክ', kind: 'phone' },
     { key: 'email', label: 'ኢሜይል', kind: 'email', computed: true, hideFromForm: true, help: 'ከመግቢያ ሥርዓቱ በራሱ ይመፃል፤ በዚህ ገጽ አይቀየርም።' },
-    { key: 'avatar_path', label: 'የመለያ ሥዕል', kind: 'image', hideFromList: true },
+    { key: 'avatar_path', label: 'የመለያ ሥዕል', kind: 'text', hideFromList: true },
     { key: 'gender', label: 'ጾታ', kind: 'select', options: GENDER_OPTIONS, hideFromList: true },
     { key: 'birth_date', label: 'የተወለደበት', kind: 'date', hideFromList: true },
     { key: 'member_status', label: 'የአባልነት ሁኔታ', kind: 'select', options: MEMBER_STATUS_OPTIONS, required: true },
@@ -100,10 +100,10 @@ export const userRolesResource = {
   write: 'system.write',
   order: { by: 'created_at', descending: true },
   fields: [
-    { key: 'user_id', label: 'ተጠቃሚ', kind: 'media', required: true, load: fkOptions('profiles', 'full_name_am') },
-    { key: 'role_id', label: 'ሚና', kind: 'media', required: true, load: fkOptions('roles', 'name_am') },
+    { key: 'user_id', label: 'ተጠቃሚ', kind: 'select', required: true, load: fkOptions('profiles', 'full_name_am') },
+    { key: 'role_id', label: 'ሚና', kind: 'select', required: true, load: fkOptions('roles', 'name_am') },
     { key: 'scope', label: 'ወሰን (JSON)', kind: 'json', help: '{ "class_ids": ["…"], "department_ids": ["…"] } — ባዶ ማለት ወሰን የለም።' },
-    { key: 'granted_by', label: 'የሰጠው', kind: 'media', computed: true, hideFromForm: true },
+    { key: 'granted_by', label: 'የሰጠው', kind: 'select', computed: true, hideFromForm: true },
     { key: 'created_at', label: 'የተሰጠበት', kind: 'datetime', computed: true, hideFromForm: true },
   ],
 } satisfies Resource<'user_roles'>;
@@ -119,11 +119,11 @@ export const rolePermissionsResource = {
   search: ['permission_key'],
   order: { by: 'granted_at', descending: true },
   fields: [
-    { key: 'role_id', label: 'ሚና', kind: 'media', required: true, load: fkOptions('roles', 'name_am') },
+    { key: 'role_id', label: 'ሚና', kind: 'select', required: true, load: fkOptions('roles', 'name_am') },
     {
       key: 'permission_key',
       label: 'ፍቃድ',
-      kind: 'media',
+      kind: 'select',
       required: true,
       load: pairOptions('permissions', 'key', 'name_am'),
       help: 'ፍቃዱ ከዝርዝሩ (module.action) ይመረጣል፤ ስሙ በአማርኛ ይታያል።',

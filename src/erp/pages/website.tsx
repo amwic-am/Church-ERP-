@@ -26,6 +26,7 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { Button } from '@/components/ui/button';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { Field, Input, Select, Switch, Textarea } from '@/components/ui/form';
+import { MediaUpload } from '@/components/ui/media-upload';
 import { ConfirmDialog, Modal } from '@/components/ui/overlay';
 import { Card, CardBody, CardHeader, CardTitle, EmptyState, ErrorNote, PageHeading, Spinner, StatusBadge, type Tone } from '@/components/ui/surface';
 import { Accordion, Tabs, TabPanel } from '@/components/ui/tabs';
@@ -98,6 +99,10 @@ function ConfigNote() {
  * `Block` switch plus the keys of `FEEDS`. `contact` is deliberately absent — it
  * is in the engine's `BLOCK_TYPES` list but has no case, and an unknown type only
  * reaches the site as plain text through the switch's default arm.
+ *
+ * The column's CHECK list (migration 0200, widened in 2200) also carries the names
+ * that existed before this vocabulary did — `richtext`, `card_grid`, `media_list`.
+ * Those stay editable so old rows are not destroyed; the block list marks them.
  */
 const RENDERABLE: readonly string[] = [
   'hero',
@@ -127,14 +132,6 @@ const BLOCK_OPTIONS: Option[] = RENDERABLE.map((value) => ({
   label: value === 'publications' ? 'ህትመቶች (publications)' : (BLOCK_LABEL[value] ?? value),
 }));
 
-/**
- * `page_blocks.block_type` has a CHECK list of its own (migration 0200 —
- * `richtext`, `card_grid`, `media_list`, …) that predates the site's block
- * vocabulary. Only `hero`, `cta` and `quote` are in both, so the rest of the
- * choices are marked here instead of being offered as if they would save.
- */
-const DB_ALLOWED: readonly string[] = ['hero', 'richtext', 'stat_row', 'card_grid', 'media_list', 'cta', 'contact', 'faq', 'embed', 'timeline', 'quote'];
-
 /** The settings keys each block type reads, expressed with the engine's field kinds. */
 type BlockSpec = {
   type: string;
@@ -147,9 +144,14 @@ type BlockSpec = {
 
 const SETTINGS_FIELD = (key: string, label: string, kind: FieldLike['kind'], extra: Partial<FieldLike> = {}): FieldLike => ({ key, label, kind, ...extra });
 
-const FEED_SETTINGS: readonly FieldLike[] = [
+/** The sort column has to exist in that block's own public view, so each feed
+ *  type names its default and its legal choices instead of guessing. */
+const FEED_SETTINGS = (defaultOrder: string, columns: string): readonly FieldLike[] => [
   SETTINGS_FIELD('count', 'የሚታዩ ንጥሎች ብዛት', 'number', { min: 1, max: 12, help: 'ከ1 እስከ 12፤ ባዶ ከሆነ የመገልገያው ተጠቃሚ ቁጥር ይወሰዳል።' }),
-  SETTINGS_FIELD('order_by', 'የሚሰበርበት አምድ', 'text', { placeholder: 'published_at', help: 'የግልጽ እይታ (view) አምድ ስም፤ ለምሳሌ published_at ወይም delivered_on።' }),
+  SETTINGS_FIELD('order_by', 'የሚሰበርበት አምድ', 'text', {
+    placeholder: defaultOrder,
+    help: `ባዶ ከሆን በ${defaultOrder} ይሰበራል። ከእነዚህ መምረጥ ይቻላል፦ ${columns}።`,
+  }),
 ];
 
 const BLOCK_SPECS: readonly BlockSpec[] = [
@@ -201,11 +203,11 @@ const BLOCK_SPECS: readonly BlockSpec[] = [
   },
   { type: 'gallery', hint: 'የቅርብ 8 ሥዕሎች ከ “v_public_media” ይወሰዳሉ — እዚህ ማመዛዘግ አያስፈልግም።' },
   { type: 'donate', hint: 'የቀርባለት ዘመቻ ከ “v_public_campaigns” በራሱ ይነበባል፤ ርዕስና ሐዋሳ ለራስዎ መግለጫ ነው።' },
-  { type: 'news', settings: FEED_SETTINGS, hint: 'የታወጁ ዜናዎች ብቻ ከ “v_public_news” ይታያሉ።' },
-  { type: 'events', settings: FEED_SETTINGS, hint: 'የታወጁ ፕሮግራሞች ከ “v_public_events” ይታያሉ።' },
-  { type: 'sermons', settings: FEED_SETTINGS, hint: 'የታወጁ ንብዕቶች ከ “v_public_sermons”።' },
-  { type: 'mezmur', settings: FEED_SETTINGS, hint: 'የታወጁ መዝሙሮች ከ “v_public_mezmur”።' },
-  { type: 'publications', settings: FEED_SETTINGS, hint: 'የታወጁ ህትመቶች ከ “v_public_publications”።' },
+  { type: 'news', settings: FEED_SETTINGS('published_at', 'published_at · views · title_am'), hint: 'የታወጁ ዜናዎች ብቻ ከ “v_public_news” ይታያሉ።' },
+  { type: 'events', settings: FEED_SETTINGS('starts_at', 'starts_at · ends_at · is_featured · title_am'), hint: 'የታወጁ ፕሮግራሞች ከ “v_public_events” ይታያሉ፤ ከstarts_at በላይ ሲሰበር የቅርብ ቀኑ መጀመሪያ ይታያል።' },
+  { type: 'sermons', settings: FEED_SETTINGS('delivered_on', 'delivered_on · published_at · created_at · listen_count'), hint: 'የታወጁ ንብዕቶች ከ “v_public_sermons”።' },
+  { type: 'mezmur', settings: FEED_SETTINGS('created_at', 'created_at · published_at · title_am · play_count'), hint: 'የታወጁ መዝሙሮች ከ “v_public_mezmur”።' },
+  { type: 'publications', settings: FEED_SETTINGS('published_on', 'published_on · created_at · download_count · title_am'), hint: 'የታወጁ ህትመቶች ከ “v_public_publications”።' },
 ];
 
 const SPEC_BY_TYPE: Record<string, BlockSpec> = Object.fromEntries(BLOCK_SPECS.map((s) => [s.type, s]));
@@ -630,10 +632,6 @@ export function HomepageComposer() {
 
           {spec?.hint ? <p className="text-xs text-muted-foreground">{spec.hint}</p> : null}
 
-          {!DB_ALLOWED.includes(textOf(values.block_type)) ? (
-            <ErrorNote message="የመረጡት የክፍል ዓይነት በዳታቤዙ የCHECK ሕግ (ማስገቢያ 0200) ውስጥ ስላልተካተተ መቅመጥ አይችልም — መጀመሪያ ዕርገቱ ማስፋት ያስፈልጋል። አማራጮች፦ hero፣ cta፣ quote።" />
-          ) : null}
-
           {spec?.settings?.length ? (
             <div className="rounded-lg border border-border p-4">
               <p className="mb-3 font-display text-sm font-semibold">የዓይነቱ ቅንብር — {BLOCK_LABEL[spec.type] ?? spec.type}</p>
@@ -687,12 +685,14 @@ function BlockControl({
   value,
   options,
   id,
+  scope = 'website',
   onChange,
 }: {
   field: FieldLike;
   value: unknown;
   options?: readonly Option[];
   id?: string;
+  scope?: string;
   onChange: (next: unknown) => void;
 }) {
   const controlId = id ?? `bf-${field.key}`;
@@ -712,7 +712,19 @@ function BlockControl({
     return <Textarea id={controlId} rows={field.kind === 'json' ? 6 : field.kind === 'rich' ? 8 : 3} value={textOf(value)} placeholder={field.placeholder} onChange={(e) => onChange(e.target.value)} />;
   }
 
-  if (field.kind === 'select' || field.kind === 'image' || field.kind === 'media') {
+  if (field.kind === 'image' || field.kind === 'media') {
+    return (
+      <MediaUpload
+        value={textOf(value)}
+        fieldLabel={field.label}
+        scope={scope}
+        required={field.required}
+        onChange={(next) => onChange(next)}
+      />
+    );
+  }
+
+  if (field.kind === 'select') {
     return <Select id={controlId} value={textOf(value)} options={options ?? field.options ?? []} placeholder={field.required ? '— ይምረጡ —' : '— አለ —'} onChange={(e) => onChange(e.target.value)} />;
   }
 

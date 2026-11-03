@@ -41,24 +41,41 @@ export function SiteSection({
   );
 }
 
-/** The banner above every interior page. */
+/**
+ * The banner above every interior page. With `image` it is a photographic band —
+ * the picture under a leaf scrim — rather than a flat tint, so a page can open on
+ * the church itself instead of on a colour.
+ */
 export function PageHeader({
   title,
   description,
   eyebrow,
+  image,
   children,
 }: {
   title: ReactNode;
   description?: ReactNode;
   eyebrow?: ReactNode;
+  image?: string | null;
   children?: ReactNode;
 }) {
+  const photographic = Boolean(image);
   return (
-    <div className="border-b border-border bg-leaf/5">
-      <div className="site-section py-10 sm:py-14">
-        {eyebrow ? <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gold-deep dark:text-gold">{eyebrow}</p> : null}
-        <h1 className="font-display text-3xl font-semibold leading-tight sm:text-4xl">{title}</h1>
-        {description ? <p className="mt-3 max-w-3xl text-sm leading-relaxed text-muted-foreground sm:text-base">{description}</p> : null}
+    <div className={cn('relative overflow-hidden border-b border-border', photographic ? 'bg-leaf-deep' : 'bg-leaf/5')}>
+      {image ? (
+        <>
+          <img src={image} alt="" aria-hidden loading="eager" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
+          <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-leaf-deep/95 via-leaf-deep/85 to-leaf/70" />
+        </>
+      ) : null}
+      <div className="site-section relative py-10 sm:py-14">
+        {eyebrow ? (
+          <p className={cn('mb-2 text-xs font-semibold uppercase tracking-wide', photographic ? 'text-gold-soft' : 'text-gold-deep dark:text-gold')}>{eyebrow}</p>
+        ) : null}
+        <h1 className={cn('font-display text-3xl font-semibold leading-tight sm:text-4xl', photographic && 'text-white')}>{title}</h1>
+        {description ? (
+          <p className={cn('mt-3 max-w-3xl text-sm leading-relaxed sm:text-base', photographic ? 'text-white/85' : 'text-muted-foreground')}>{description}</p>
+        ) : null}
         {children ? <div className="mt-5 flex flex-wrap gap-2">{children}</div> : null}
       </div>
     </div>

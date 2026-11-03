@@ -126,7 +126,7 @@ const applicationSchema = z.object({
   address_am: amText('አድራሻ', { min: 2, max: 500, required: false }),
   parish: amText('የመንፈስ ቅዱስ ጉባኤ', { min: 2, max: 200, required: false }),
   guardian_name: amText('የአባት ወይም የእናት ስም', { min: 2, max: 120, required: false }),
-  guardian_phone: ethPhone('የወላጅ ስልክ'),
+  guardian_phone: ethPhone('የወላጅ ስልክ').optional(),
   level_requested: amText('የተጠየቀ የትምህርት ደረጃ', { min: 1, max: 120, required: false }),
   department_pref: amText('የክፍለ ጉዳይ ምርጫ', { min: 1, max: 120, required: false }),
   availability: amText('የሰዓት አቅም', { min: 1, max: 200, required: false }),
@@ -586,10 +586,13 @@ export function DonatePage() {
 }
 
 // ─── የመረጃ ማሳወቂያ · newsletter ──────────────────────────────────────────────
+// Both public newsletter slots render the email input only, so the fields they
+// hide must be absent from validation, not merely empty — a required `phone` fails
+// on an input nobody can see, and the submit button appears dead.
 const newsletterSchema = z.object({
   email: ethEmail('ኢሜይል አድራሻ', { required: true }),
   name_am: amText('ስም', { min: 2, max: 120, required: false }),
-  phone: ethPhone('ስልክ ቁጥር'),
+  phone: ethPhone('ስልክ ቁጥር').optional(),
 });
 type NewsletterValues = z.infer<typeof newsletterSchema>;
 

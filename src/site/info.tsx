@@ -14,6 +14,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowRight, CalendarDays, Church, HandHeart, Info, Users } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { BrandMark } from '@/components/ui/brand';
 import { Avatar, ProgressBar } from '@/components/ui/tabs';
 import { Card, CardBody, CardDescription, CardTitle, ErrorNote, Spinner, StatusBadge } from '@/components/ui/surface';
 import { br, dateTimeAm, num, pct, truncate } from '@/lib/format';
@@ -58,6 +59,7 @@ import { useCmsPage } from './CmsPage';
 import { CardGrid, ContentCard, DateMeta, PageHeader, SeeAllLink, SiteSection, StateNote, TagList, Thumb } from './common';
 import { Seo } from './Seo';
 import { type AsyncState, useRows } from './data';
+import { NewsletterForm } from './forms';
 
 type Leadership = ViewRow<'v_public_leadership'>;
 type Department = ViewRow<'v_public_departments'>;
@@ -291,10 +293,19 @@ function HomeComposition({ cmsError, onRetry }: { cmsError: string | null; onRet
   return (
     <>
       <Seo title={null} description={intro} />
-      <section className="border-b border-border bg-leaf text-primary-foreground">
-        <div className="site-section py-14 sm:py-20">
-          <p className="text-xs font-semibold uppercase tracking-wide text-gold-soft">{settings.church_name_am || UI.churchName}</p>
-          <h1 className="mt-3 max-w-3xl font-display text-3xl font-bold leading-tight sm:text-5xl">{brand}</h1>
+      <section className="relative isolate overflow-hidden border-b border-border bg-leaf text-primary-foreground">
+        <img src="/images/hero-procession.jpg" alt="" aria-hidden className="absolute inset-0 -z-10 h-full w-full object-cover" />
+        <div aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-r from-leaf-deep/95 via-leaf-deep/70 to-transparent" />
+        <BrandMark
+          logoPath={settings.logo_path}
+          size={320}
+          className="pointer-events-none absolute -bottom-12 -right-8 hidden opacity-[0.07] lg:block"
+        />
+        <div className="site-section relative flex flex-col justify-center py-14 sm:py-20 lg:min-h-[78vh]">
+          <p className="inline-flex w-fit items-center rounded-full border border-gold/40 bg-leaf-deep/60 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-gold-soft">
+            {settings.church_name_am || UI.churchName}
+          </p>
+          <h1 className="mt-4 max-w-3xl font-display text-3xl font-bold leading-tight sm:text-5xl">{brand}</h1>
           {intro ? <p className="mt-4 max-w-2xl text-sm leading-relaxed opacity-90 sm:text-base">{intro}</p> : null}
           <p className="mt-4 font-ethiopic text-sm opacity-90">
             {formatEthiopian(today)} — {devotionSummary(today)}
@@ -449,6 +460,22 @@ function HomeComposition({ cmsError, onRetry }: { cmsError: string | null; onRet
           </Card>
         ) : null}
       </SiteSection>
+
+      <section className="relative isolate overflow-hidden border-y border-border bg-leaf-deep text-primary-foreground">
+        <img src="/images/worship-art.jpg" alt="" aria-hidden className="absolute inset-0 -z-10 h-full w-full object-cover" />
+        <div aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-r from-leaf-deep via-leaf-deep/90 to-leaf/70" />
+        <div className="site-section relative grid gap-6 py-12 sm:py-14 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:items-center">
+          <div>
+            <h2 className="font-display text-2xl font-semibold leading-tight sm:text-3xl">የመረጃ ማሳወቂያ ተቀባይ ይሁኑ</h2>
+            <p className="mt-2 max-w-xl text-sm leading-relaxed opacity-90 sm:text-base">
+              ዜናዎች፣ የፕሮግራም ጊዜያትና የምዝገባ መክፈቻ በኢሜይል ይድረሱልዎት።
+            </p>
+          </div>
+          <div className="w-full max-w-md lg:ms-auto">
+            <NewsletterForm compact />
+          </div>
+        </div>
+      </section>
     </>
   );
 }

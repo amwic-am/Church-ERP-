@@ -13,7 +13,8 @@
     "db:smoke": "node scripts/smoke-db.mjs",
     "lib:check": "node --experimental-strip-types scripts/verify-lib.mjs",
     "db:push": "supabase db push",
-    "db:lint": "supabase db lint"
+    "db:lint": "supabase db lint",
+    "db:seed:check": "node scripts/verify-seed.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

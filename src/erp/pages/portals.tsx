@@ -356,6 +356,29 @@ function Detail({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
+// `student_profiles.level_key` is a code (`l2`), so a portal that names a pupil's
+// level has to translate it. The read goes through the public view — parents and
+// students have no grant on `class_levels` itself, and if this read somehow
+// fails the code is shown rather than nothing.
+function useLevelNames(): (key?: string | null) => string {
+  const [names, setNames] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    let alive = true;
+    fetchRows<{ key: string; name_am: string }>('v_public_class_levels', { select: 'key,name_am', order: 'order_no', ascending: true, limit: 100 })
+      .then((rows) => {
+        if (alive) setNames(Object.fromEntries(rows.map((r) => [r.key, r.name_am])));
+      })
+      .catch(() => {
+        if (alive) setNames({});
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return useCallback((key) => (key ? names[key] ?? key : '—'), [names]);
+}
+
 // ═══ 1 · የተማሪ ገጽ ═══════════════════════════════════════════════════════════
 
 export function StudentPortalScreen() {
@@ -396,6 +419,7 @@ const EMPTY_BUNDLE: StudentBundle = {
 
 function StudentPortal() {
   const { identity, can } = useAuth();
+  const levelName = useLevelNames();
   const [yearId, setYearId] = useState('');
   const [bundle, setBundle] = useState<StudentBundle>(EMPTY_BUNDLE);
   const [loading, setLoading] = useState(false);
@@ -613,7 +637,7 @@ function StudentPortal() {
             </CardHeader>
             <CardBody className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <Detail label="የተማሪ ቁጥር" value={bundle.profile?.student_code ?? '—'} />
-              <Detail label="የትምህርት ደረጃ" value={bundle.profile?.level_key ?? 'አልተመዘገበም'} />
+              <Detail label="የትምህርት ደረጃ" value={bundle.profile?.level_key ? levelName(bundle.profile.level_key) : 'አልተመዘገበም'} />
               <Detail label="ጾታ" value={bundle.profile?.gender ? enumLabel(GENDER, bundle.profile.gender) : '—'} />
               <Detail label="የተመዘገበበት" value={bundle.profile?.enrolled_on ? dateAm(bundle.profile.enrolled_on) : '—'} />
               <Detail label="ቤተ ክርስቲያን/ሰብዐ" value={bundle.profile?.parish ?? '—'} />
@@ -916,6 +940,7 @@ type ChildView = {
 };
 
 function ParentPortal() {
+  const levelName = useLevelNames();
   const me = useResolvedMe<string>(async () => {
     const guardianId = await callFn('my_guardian_id', {});
     return guardianId ? String(guardianId) : null;
@@ -1080,7 +1105,7 @@ function ParentPortal() {
                     </CardHeader>
                     <CardBody className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                       <Detail label="የተማሪ ቁጥር" value={active.profile?.student_code ?? '—'} />
-                      <Detail label="የትምህርት ደረጃ" value={active.profile?.level_key ?? '—'} />
+                      <Detail label="የትምህርት ደረጃ" value={levelName(active.profile?.level_key)} />
                       <Detail label="ቤተ ክርስቲያን/ሰብዐ" value={active.profile?.parish ?? '—'} />
                       <Detail label="የክፍል መምህር" value={active.teacherNames.length ? active.teacherNames.join('፣ ') : '—'} />
                     </CardBody>

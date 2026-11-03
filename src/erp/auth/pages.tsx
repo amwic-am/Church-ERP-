@@ -12,11 +12,13 @@ import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { KeyRound, LogIn, MailCheck } from 'lucide-react';
 
 import { useAuth } from '@/components/auth/AuthProvider';
+import { BrandMark } from '@/components/ui/brand';
 import { Button } from '@/components/ui/button';
 import { Card, ErrorNote, Spinner } from '@/components/ui/surface';
 import { Field, Input } from '@/components/ui/form';
 import { requestPasswordReset, signIn, updatePassword } from '@/lib/auth';
 import { env, isSupabaseConfigured, missingConfigHint } from '@/lib/env';
+import { useSiteSettings } from '@/lib/siteSettings';
 import { FORGOT_PATH, LOGIN_PATH, RESET_PATH } from '@/lib/routes';
 import { ethEmail, passwordField, passwordPair } from '@/lib/validation';
 import { UI } from '@/lib/i18n';
@@ -28,10 +30,14 @@ const resetSchema = passwordPair();
 type ResetValues = z.infer<typeof resetSchema>;
 
 function AuthFrame({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
+  const { settings } = useSiteSettings();
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/40 px-4 py-10">
       <Card className="w-full max-w-md">
         <div className="border-b border-border px-6 py-5 text-center">
+          <div className="mb-3 flex justify-center">
+            <BrandMark logoPath={settings.logo_path} size={56} />
+          </div>
           <p className="font-display text-lg font-semibold">{env.appName}</p>
           <p className="mt-1 text-xs text-muted-foreground">{UI.churchName}</p>
           <h1 className="mt-4 font-display text-xl font-semibold">{title}</h1>

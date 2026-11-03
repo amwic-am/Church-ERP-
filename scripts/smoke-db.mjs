@@ -301,6 +301,29 @@ check('parent reads only the linked child', (await reads(P)) === 1);
 check('teacher reads a student in their class', (await reads(T)) === 1);
 check('unrelated staff user reads nothing', (await reads(O)) === 0);
 
+// The parent portal reads the two guardian tables directly. Their policies used
+// to reference each other with plain subqueries, which Postgres reported as
+// `infinite recursion detected in policy for relation "guardian_students"` —
+// a signed-in parent saw an error instead of their children.
+const guardianRead = async (sql) =>
+  as(db, 'authenticated', P, async () => {
+    try {
+      return (await q(sql, [P])).rows.length;
+    } catch (e) {
+      return `error: ${String(e.message).split('\n')[0]}`;
+    }
+  });
+check(
+  'a parent reads their own guardian row',
+  (await guardianRead('select id from public.guardians where user_id = ?')) === 1
+);
+check(
+  'a parent reads their own child links',
+  (await guardianRead(
+    'select gs.student_id from public.guardian_students gs join public.guardians g on g.id = gs.guardian_id where g.user_id = ?'
+  )) === 1
+);
+
 // A second class with its own register, built with owner rights so the test
 // below is only about what another student can see.
 const otherStudent = (
@@ -869,6 +892,55 @@ const forbidden = await as(db, 'anon', null, async () => {
   }
 });
 check('anon has no table privileges on student data', forbidden === 'denied', forbidden);
+
+// Supabase's default privileges grant EXECUTE on every new `public` function to
+// `anon`, and PostgREST turns that into a public endpoint. Migration 2430 closes
+// that and re-opens only the signed-out website's own calls; this is the guard
+// that a future function with the old defaults does not leak the books again.
+const STAFF_ONLY_FNS = [
+  ['finance_summary', 'select public.finance_summary(null, null)', []],
+  ['dashboard_kpis', 'select public.dashboard_kpis()', []],
+  ['dashboard_series', 'select public.dashboard_series()', []],
+  ['pending_approvals', 'select * from public.pending_approvals()', []],
+  ['student_report_card', 'select public.student_report_card($1, null)', [A]],
+  ['class_ranking', 'select public.class_ranking($1, $1)', [A]],
+  ['users_with_permission', 'select public.users_with_permission($1)', [A]],
+  ['claim_outbox', 'select public.claim_outbox(5)', []],
+  ['bootstrap_super_admin', 'select public.bootstrap_super_admin($1)', ['nobody@t.test']],
+  ['decide_transaction', 'select public.decide_transaction($1, $2, $3)', [A, 'approved', 'note']],
+  ['run_promotion', 'select public.run_promotion($1)', [A]],
+];
+const leaks = [];
+for (const [name, sql, params] of STAFF_ONLY_FNS) {
+  const verdict = await as(db, 'anon', null, async () => {
+    try {
+      await q(sql, params);
+      return 'allowed';
+    } catch (e) {
+      return String(e.message).includes('permission denied') ? 'denied' : String(e.message).split('\n')[0];
+    }
+  });
+  if (verdict !== 'denied') leaks.push(`${name} → ${verdict}`);
+}
+check('no staff endpoint is callable by anon', leaks.length === 0, leaks.join(', '));
+
+const OPEN_FNS = [
+  ['has_permission', 'select public.has_permission($1)', ['students.read']],
+  ['is_super_admin', 'select public.is_super_admin()', []],
+  ['search_site', 'select * from public.search_site($1) limit 1', ['እምነት']],
+  ['verify_certificate', 'select public.verify_certificate($1)', ['NOPE-1']],
+];
+for (const [name, sql, params] of OPEN_FNS) {
+  const verdict = await as(db, 'anon', null, async () => {
+    try {
+      await q(sql, params);
+      return 'allowed';
+    } catch (e) {
+      return String(e.message).split('\n')[0];
+    }
+  });
+  check(`anon still reaches ${name}`, verdict === 'allowed', verdict);
+}
 
 const pending = (await q('select count(*)::int as n from public.pending_approvals()')).rows[0].n;
 check('pending approval queue is reportable', pending >= 1, `${pending} open requests`);

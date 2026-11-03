@@ -6,9 +6,12 @@
 // policies in the migrations — never by code that decides who may see a row.
 
 import { createClient, type PostgrestError, type Session, type SupabaseClient, type User } from '@supabase/supabase-js';
-import type { Database } from '@/types/database';
+import type { Database, MediaFilesRow } from '@/types/database';
 import { env, isSupabaseConfigured } from './env.ts';
 import { friendlyError } from './errors.ts';
+
+/** The media kind the `media_files.kind` CHECK allows, derived from a file. */
+export type MediaKind = 'image' | 'audio' | 'video' | 'document' | 'archive';
 
 export type DbSchema = Database['public'];
 export type TableName = keyof DbSchema['Tables'];
@@ -164,4 +167,77 @@ export async function uploadMedia(objectPath: string, file: File): Promise<{ pat
 export async function removeMedia(objectPath: string): Promise<boolean> {
   const { error } = await supabase.storage.from(env.mediaBucket).remove([objectPath]);
   return !error;
+}
+
+/**
+ * One real write of the media pipeline: put the bytes in the `media` bucket, then
+ * register a `media_files` row, and hand back the new row so a field can store its
+ * ID (never a URL). The object path is `scope/uuid.ext` — the caller's filename is
+ * only ever used for the display `name`, never as a path segment, so nobody can
+ * traverse or collide into another upload by naming a file.
+ *
+ * If the row insert is refused (RLS, a duplicate path, a missing bucket) the object
+ * that just landed is removed again and the failure is thrown, so a half-completed
+ * upload never lingers. Throwing an `Error` whose message is already Amharic lets
+ * the caller surface it as a toast instead of a blank spinner.
+ */
+export async function persistMediaFile(params: {
+  file: File;
+  scope: string;
+  ext: string;
+  kind: MediaKind;
+  name?: string;
+  titleAm?: string | null;
+  width?: number | null;
+  height?: number | null;
+  durationSecs?: number | null;
+  uploadedBy?: string | null;
+}): Promise<{ id: string; storagePath: string; publicUrl: string | null; row: MediaFilesRow | null }> {
+  const safeScope = (params.scope || 'media').replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'media';
+  const safeExt = (params.ext || 'bin').replace(/[^a-zA-Z0-9]+/g, '').toLowerCase().slice(0, 8) || 'bin';
+  const objectPath = `${safeScope}/${crypto.randomUUID()}.${safeExt}`;
+
+  const { error: uploadError } = await uploadMedia(objectPath, params.file);
+  if (uploadError) throw new Error(uploadError);
+
+  const id = crypto.randomUUID();
+  const now = new Date().toISOString();
+  const publicUrl = storagePublicUrl(env.mediaBucket, objectPath);
+
+  const record = {
+    id,
+    bucket: env.mediaBucket,
+    storage_path: objectPath,
+    name: params.name || params.file.name || objectPath,
+    kind: params.kind,
+    tags: [],
+    state: 'published',
+    is_public: true,
+    download_count: 0,
+    created_at: now,
+    updated_at: now,
+    mime_type: params.file.type || null,
+    byte_size: params.file.size,
+    public_url: publicUrl,
+    title_am: params.titleAm ?? null,
+    width: params.width ?? null,
+    height: params.height ?? null,
+    duration_secs: params.durationSecs ?? null,
+    uploaded_by: params.uploadedBy ?? null,
+  };
+
+  const { data, error: insertError } = await supabase.from('media_files').insert(record as never).select().single();
+  if (insertError) {
+    // Roll the bytes back so a refused row does not orphan an object in the bucket.
+    await removeMedia(objectPath);
+    throw new Error(friendlyError(insertError));
+  }
+
+  return { id, storagePath: objectPath, publicUrl, row: (data as MediaFilesRow) ?? null };
+}
+
+/** The display URL for a media row: its stored public URL, else the bucket path. */
+export function mediaRowUrl(row: { bucket?: string | null; storage_path?: string | null; public_url?: string | null } | null | undefined): string | null {
+  if (!row) return null;
+  return row.public_url || storagePublicUrl(row.bucket, row.storage_path);
 }
